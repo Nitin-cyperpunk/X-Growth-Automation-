@@ -72,3 +72,4 @@ automation/        — n8n workflows and docs
 database/          — Database documentation
 docs/              — Project documentation
 ```
+# X-Growth-Automation-
