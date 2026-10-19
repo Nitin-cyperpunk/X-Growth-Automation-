@@ -1,24 +1,31 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, afterEach } from "vitest";
 import { cleanup } from "@testing-library/react";
-import Home from "@/app/page";
+import DashboardPage from "@/app/(dashboard)/page";
 
 afterEach(() => {
   cleanup();
 });
 
-describe("Home page", () => {
-  it("renders the heading", () => {
-    render(<Home />);
+describe("Dashboard page", () => {
+  it("renders the dashboard heading", () => {
+    render(<DashboardPage />);
     expect(
-      screen.getByRole("heading", { name: /x growth engine/i })
+      screen.getByRole("heading", { name: /dashboard/i })
     ).toBeInTheDocument();
   });
 
-  it("renders the description", () => {
-    render(<Home />);
-    expect(
-      screen.getByText(/ai-powered content management/i)
-    ).toBeInTheDocument();
+  it("renders stat cards", () => {
+    render(<DashboardPage />);
+    expect(screen.getByText("Total Posts")).toBeInTheDocument();
+    expect(screen.getByText("Scheduled")).toBeInTheDocument();
+    expect(screen.getByText("Published")).toBeInTheDocument();
+    expect(screen.getByText("Drafts")).toBeInTheDocument();
+  });
+
+  it("renders empty states for sections", () => {
+    render(<DashboardPage />);
+    expect(screen.getByText("Recent Posts")).toBeInTheDocument();
+    expect(screen.getByText("Upcoming Scheduled")).toBeInTheDocument();
   });
 });
