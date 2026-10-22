@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
 import { updatePostStatus, deletePost } from "@/lib/actions/posts";
+import { publishPost } from "@/lib/actions/x";
 import { getValidTransitions } from "@/lib/services/post-transitions";
 import type { PostStatus } from "@/lib/services/post-transitions";
 import type { Post } from "@/lib/db/schema";
@@ -13,12 +14,14 @@ interface QueueClientProps {
   posts: Post[];
   activeTab: PostStatus;
   tabs: { label: string; status: PostStatus }[];
+  xAccountId: string | null;
 }
 
-export function QueueClient({ posts, activeTab, tabs }: QueueClientProps) {
+export function QueueClient({ posts, activeTab, tabs, xAccountId }: QueueClientProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
 
   async function handleStatusChange(postId: string, newStatus: PostStatus) {
     setError(null);
@@ -27,6 +30,25 @@ export function QueueClient({ posts, activeTab, tabs }: QueueClientProps) {
       startTransition(() => router.refresh());
     } else {
       setError(result.error);
+    }
+  }
+
+  async function handlePublish(postId: string) {
+    if (!xAccountId) return;
+    if (!confirm("Publish this post to X? This action cannot be undone.")) return;
+    setError(null);
+    setPublishingId(postId);
+    try {
+      const result = await publishPost({ postId, xAccountId });
+      if (result.success) {
+        startTransition(() => router.refresh());
+      } else {
+        setError(result.error);
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setPublishingId(null);
     }
   }
 
@@ -121,7 +143,19 @@ export function QueueClient({ posts, activeTab, tabs }: QueueClientProps) {
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
-                    {transitions.map((t) => (
+                    {xAccountId &&
+                      (post.status === "approved" || post.status === "scheduled") && (
+                        <button
+                          onClick={() => handlePublish(post.id)}
+                          disabled={isPending || publishingId === post.id}
+                          className="rounded bg-violet-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+                        >
+                          {publishingId === post.id ? "Publishing..." : "Publish to X"}
+                        </button>
+                      )}
+                    {transitions
+                      .filter((t) => !(xAccountId && t === "publishing"))
+                      .map((t) => (
                       <button
                         key={t}
                         onClick={() => handleStatusChange(post.id, t)}
