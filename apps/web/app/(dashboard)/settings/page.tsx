@@ -1,6 +1,11 @@
 import { PageHeader } from "@/components/ui/page-header";
+import { isGeminiConfigured } from "@/lib/ai/gemini";
+import { isN8nConfigured } from "@/lib/n8n/client";
 
 export default function SettingsPage() {
+  const geminiStatus = isGeminiConfigured() ? "connected" : "not_configured";
+  const n8nStatus = isN8nConfigured() ? "connected" : "not_configured";
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -32,17 +37,17 @@ export default function SettingsPage() {
             <IntegrationRow
               name="Gemini AI"
               description="AI-powered content generation and insights"
-              status="not_configured"
+              status={geminiStatus}
             />
             <IntegrationRow
               name="n8n Automation"
               description="Scheduled publishing and automated workflows"
-              status="not_configured"
+              status={n8nStatus}
             />
             <IntegrationRow
               name="Neon Database"
               description="PostgreSQL database for persistent storage"
-              status="not_configured"
+              status="connected"
             />
           </div>
         </section>

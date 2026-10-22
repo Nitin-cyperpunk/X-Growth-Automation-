@@ -161,6 +161,65 @@ export const auditLogs = pgTable("audit_logs", {
   index("audit_logs_user_created_idx").on(table.userId, table.createdAt),
 ]);
 
+// --- Workflow Enums ---
+
+export const workflowTypeEnum = pgEnum("workflow_type", [
+  "content_preparation",
+  "queue_processing",
+  "daily_ideas",
+]);
+
+export const executionStatusEnum = pgEnum("execution_status", [
+  "pending",
+  "running",
+  "succeeded",
+  "failed",
+  "retrying",
+]);
+
+// --- Workflow Tables ---
+
+export const workflowConfigs = pgTable("workflow_configs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  workflowType: workflowTypeEnum("workflow_type").notNull(),
+  enabled: boolean("enabled").default(false).notNull(),
+  schedule: varchar("schedule", { length: 100 }),
+  timezone: varchar("timezone", { length: 100 }).default("UTC").notNull(),
+  config: jsonb("config").$type<Record<string, unknown>>().default({}),
+  lastTriggeredAt: timestamp("last_triggered_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("workflow_configs_user_type_idx").on(table.userId, table.workflowType),
+]);
+
+export const workflowExecutions = pgTable("workflow_executions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  workflowConfigId: uuid("workflow_config_id")
+    .references(() => workflowConfigs.id, { onDelete: "set null" }),
+  workflowType: workflowTypeEnum("workflow_type").notNull(),
+  status: executionStatusEnum("status").default("pending").notNull(),
+  idempotencyKey: varchar("idempotency_key", { length: 255 }).notNull(),
+  payload: jsonb("payload").$type<Record<string, unknown>>(),
+  result: jsonb("result").$type<Record<string, unknown>>(),
+  errorMessage: text("error_message"),
+  retryCount: integer("retry_count").default(0).notNull(),
+  maxRetries: integer("max_retries").default(3).notNull(),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index("workflow_executions_user_idx").on(table.userId, table.createdAt),
+  index("workflow_executions_status_idx").on(table.status, table.createdAt),
+  uniqueIndex("workflow_executions_idempotency_idx").on(table.idempotencyKey),
+]);
+
 // --- Type Exports ---
 
 export type User = typeof users.$inferSelect;
@@ -173,3 +232,7 @@ export type NewPost = typeof posts.$inferInsert;
 export type AiGeneration = typeof aiGenerations.$inferSelect;
 export type PostMetric = typeof postMetrics.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
+export type WorkflowConfig = typeof workflowConfigs.$inferSelect;
+export type NewWorkflowConfig = typeof workflowConfigs.$inferInsert;
+export type WorkflowExecution = typeof workflowExecutions.$inferSelect;
+export type NewWorkflowExecution = typeof workflowExecutions.$inferInsert;

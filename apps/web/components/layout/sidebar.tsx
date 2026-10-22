@@ -51,6 +51,11 @@ const navItems: NavItem[] = [
     icon: <InsightsIcon />,
   },
   {
+    label: "Automation",
+    href: "/automation",
+    icon: <AutomationIcon />,
+  },
+  {
     label: "Settings",
     href: "/settings",
     icon: <SettingsIcon />,
@@ -181,6 +186,16 @@ function SettingsIcon() {
     <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-4 w-4">
       <circle cx="8" cy="8" r="2" />
       <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" />
+    </svg>
+  );
+}
+
+function AutomationIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-4 w-4">
+      <path d="M2 8a6 6 0 0 1 12 0M5 8a3 3 0 0 1 6 0" />
+      <circle cx="8" cy="8" r="1" />
+      <path d="M8 9v4" />
     </svg>
   );
 }

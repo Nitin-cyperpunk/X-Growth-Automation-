@@ -75,15 +75,57 @@ Last updated: 2026-10-22
 - [x] Zod schemas for all AI request/response types (lib/validators/ai.ts)
 - [x] Model: gemini-2.0-flash | responseMimeType: application/json
 
+### Milestone 5 — n8n Automation & Workflow Integration (Prompt 06)
+- [x] Database migration: workflow_configs and workflow_executions tables (0001_workflow_automation.sql)
+- [x] Enums: workflow_type (content_preparation, queue_processing, daily_ideas), execution_status (pending, running, succeeded, failed, retrying)
+- [x] Unique index on (user_id, workflow_type) for one config per user per workflow
+- [x] Unique idempotency_key on executions to prevent duplicates
+- [x] n8n client service (lib/n8n/client.ts):
+  - URL validation with SSRF protection (blocks localhost, metadata endpoints, .internal in production)
+  - HTTPS enforcement in production
+  - HMAC-SHA256 webhook signing with timestamp and replay protection (5-minute window)
+  - Constant-time signature comparison via crypto.timingSafeEqual
+  - Request timeouts (15s) and bounded retries (1 retry)
+  - Redirect rejection (fetch redirect: "error")
+  - Path traversal protection
+- [x] Zod validators (lib/validators/workflows.ts):
+  - workflowConfigSchema, updateWorkflowConfigSchema, triggerWorkflowSchema, webhookCallbackSchema
+  - Cron expression validation with presets (9am, 6pm, twice daily, weekday schedules)
+  - 16 supported timezones
+- [x] Server actions (lib/actions/workflows.ts):
+  - checkN8nStatus, getWorkflowConfigs, upsertWorkflowConfig, updateWorkflowConfig
+  - triggerWorkflow: creates execution record before n8n request, idempotency key dedup
+  - getWorkflowExecutions: paginated, filterable by type
+  - All actions require authentication and validate ownership
+- [x] Webhook callback API route (app/api/webhooks/n8n/route.ts):
+  - HMAC signature verification on inbound n8n callbacks
+  - Zod validation of callback payload
+  - Terminal state protection (won't overwrite succeeded/failed)
+  - Error message truncation (1000 chars max)
+- [x] Automation dashboard page (app/(dashboard)/automation/):
+  - n8n connection status indicator
+  - Workflow cards with enable/disable toggle, schedule configuration, manual trigger
+  - Cron presets and timezone selector
+  - Recent execution history table (status, times, retries, errors)
+  - Honest empty state with setup instructions when n8n not configured
+- [x] Sidebar: Automation nav item added
+- [x] Settings: Real integration status for Gemini AI and n8n (reads env vars)
+- [x] .env.example: Updated n8n section with N8N_BASE_URL, N8N_WEBHOOK_SECRET docs
+- [x] Workflow template JSON (automation/workflows/content-preparation.json)
+- [x] automation/README.md: Webhook contract, security docs, deployment notes
+- [x] No X publishing in this milestone
+- [x] API key and webhook secret are server-side only
+
 ### Testing
-- [x] 148 tests passing across 12 test files
+- [x] 190 tests passing across 14 test files
 - [x] Post status transitions: 21 + 10 extended tests
-- [x] Zod validators: auth (5), posts (9+14), ideas (10+12), AI (30)
+- [x] Zod validators: auth (5), posts (9+14), ideas (10+12), AI (30), workflows (22)
 - [x] AI content-generator: 17 tests (mocked Gemini, validation, truncation, errors)
 - [x] Gemini client: 7 tests (config detection, missing key, model ID)
+- [x] n8n client: 20 tests (config detection, URL validation, SSRF protection, HMAC signatures, replay rejection, missing config)
 - [x] DB schema: 10 tests
 - [x] Dashboard page rendering: 3 tests
-- [x] All tests use mocks — no real API key or charges required
+- [x] All tests use mocks — no real API key, n8n instance, or charges required
 - [x] TypeScript strict mode — zero type errors
 - [x] ESLint — zero errors, zero warnings
 
@@ -125,10 +167,7 @@ Last updated: 2026-10-22
 - [ ] Post publishing
 - [ ] Metrics retrieval
 
-### Milestone 6 — Scheduling and n8n
-- [ ] n8n workflow exports
-- [ ] Scheduled job claiming and publishing
-- [ ] Docker configuration for Render
+### ~~Milestone 6 — Scheduling and n8n~~ ✅ Complete (see Milestone 5 above, renamed from Prompt 06)
 
 ### Milestone 7 — Analytics Dashboard
 - [ ] Recharts integration
@@ -145,7 +184,8 @@ Last updated: 2026-10-22
 
 - **GEMINI_API_KEY**: Not configured. AI Writer page shows honest empty state.
 - **X API credentials**: Not configured. Publish and metrics features unavailable.
-- **n8n**: Not configured. Scheduling features unavailable.
+- **N8N_BASE_URL / N8N_WEBHOOK_SECRET**: Not configured. Automation page shows setup instructions. Workflow triggers will fail until n8n is deployed and secrets are set.
+- **Database migration 0001**: Must be applied (`pnpm db:migrate`) to create workflow_configs and workflow_executions tables.
 
 ## Environment Setup
 

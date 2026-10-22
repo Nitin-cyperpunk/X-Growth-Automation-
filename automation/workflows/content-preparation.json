@@ -1,0 +1,92 @@
+{
+  "name": "Content Preparation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "content-preparation",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.headers['x-webhook-signature'] }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "verify-signature",
+      "name": "Verify Signature",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [450, 300],
+      "notes": "Verify HMAC signature matches x-webhook-signature header. Configure the same N8N_WEBHOOK_SECRET as the Next.js app."
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.body.data.callbackUrl || '' }}",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "executionId", "value": "={{ $json.body.data.executionId }}" },
+            { "name": "eventId", "value": "={{ $json.body.eventId }}" },
+            { "name": "status", "value": "succeeded" }
+          ]
+        }
+      },
+      "id": "callback-success",
+      "name": "Callback Success",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [850, 200],
+      "notes": "POST result back to Next.js webhook callback endpoint"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.body.data.callbackUrl || '' }}",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "executionId", "value": "={{ $json.body.data.executionId }}" },
+            { "name": "eventId", "value": "={{ $json.body.eventId }}" },
+            { "name": "status", "value": "failed" },
+            { "name": "errorMessage", "value": "={{ $json.error?.message || 'Unknown error' }}" }
+          ]
+        }
+      },
+      "id": "callback-failure",
+      "name": "Callback Failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [850, 400],
+      "notes": "POST failure back to Next.js webhook callback endpoint"
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [{ "node": "Verify Signature", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateId": "x-growth-engine-content-preparation",
+    "schemaVersion": 1,
+    "notes": "Template workflow for content preparation. Customize the processing nodes between signature verification and callback. Configure N8N_WEBHOOK_SECRET to match the Next.js app."
+  }
+}
