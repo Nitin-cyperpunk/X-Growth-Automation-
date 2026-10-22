@@ -63,17 +63,23 @@ describe("database schema definitions", () => {
     expect(cols).toContain("updatedAt");
   });
 
-  it("posts table has expected columns", () => {
+  it("posts table has expected columns including foreign keys", () => {
     const cols = Object.keys(schema.posts);
     expect(cols).toContain("id");
     expect(cols).toContain("userId");
+    expect(cols).toContain("xAccountId");
+    expect(cols).toContain("ideaId");
     expect(cols).toContain("content");
     expect(cols).toContain("status");
     expect(cols).toContain("scheduledFor");
     expect(cols).toContain("publishedAt");
     expect(cols).toContain("xPostId");
-    expect(cols).toContain("ideaId");
+    expect(cols).toContain("xPostUrl");
+    expect(cols).toContain("failureReason");
+    expect(cols).toContain("retryCount");
     expect(cols).toContain("isAiGenerated");
+    expect(cols).toContain("createdAt");
+    expect(cols).toContain("updatedAt");
   });
 
   it("content_ideas table has expected columns", () => {
@@ -85,41 +91,32 @@ describe("database schema definitions", () => {
     expect(cols).toContain("status");
     expect(cols).toContain("category");
     expect(cols).toContain("tags");
+    expect(cols).toContain("createdAt");
+    expect(cols).toContain("updatedAt");
   });
 
-  it("exports inferred types", () => {
-    const user: schema.User = {} as schema.User;
-    const idea: schema.ContentIdea = {} as schema.ContentIdea;
-    const post: schema.Post = {} as schema.Post;
-    expect(user).toBeDefined();
-    expect(idea).toBeDefined();
-    expect(post).toBeDefined();
+  it("ai_generations table has expected columns", () => {
+    const cols = Object.keys(schema.aiGenerations);
+    expect(cols).toContain("id");
+    expect(cols).toContain("userId");
+    expect(cols).toContain("postId");
+    expect(cols).toContain("prompt");
+    expect(cols).toContain("model");
+    expect(cols).toContain("generatedContent");
+    expect(cols).toContain("scores");
+    expect(cols).toContain("averageScore");
+    expect(cols).toContain("variationAngle");
+    expect(cols).toContain("tokenUsage");
   });
-});
 
-describe("database client", () => {
-  it("getDb throws when DATABASE_URL is missing", async () => {
-    const origUrl = process.env.DATABASE_URL;
-    delete process.env.DATABASE_URL;
-
-    // Reset the singleton so it re-reads the env
-    const dbModule = await import("@/lib/db/index");
-
-    // We need to force a fresh module to test the throw
-    // Since getDb is a singleton, we test getDatabaseUrl behavior via the error
-    // The lazy singleton means if _db is already set, it won't re-read.
-    // For a clean test, we check the error message pattern
-    expect(() => {
-      // This will only throw if the singleton hasn't been created yet in this test process
-      // Since tests run in isolation (jsdom), this should work
-      const { getDb } = dbModule;
-      try {
-        getDb();
-      } catch (e) {
-        throw e;
-      }
-    }).toBeDefined();
-
-    process.env.DATABASE_URL = origUrl;
+  it("audit_logs table has expected columns", () => {
+    const cols = Object.keys(schema.auditLogs);
+    expect(cols).toContain("id");
+    expect(cols).toContain("userId");
+    expect(cols).toContain("action");
+    expect(cols).toContain("entityType");
+    expect(cols).toContain("entityId");
+    expect(cols).toContain("metadata");
+    expect(cols).toContain("createdAt");
   });
 });
