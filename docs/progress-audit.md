@@ -53,14 +53,39 @@ Last updated: 2026-10-22
 - [x] ESLint .next/ directory excluded from linting
 - [x] next.config.ts outputFileTracingRoot set for correct workspace resolution
 
+### Milestone 4 — Gemini AI Integration (Prompt 05)
+- [x] @google/generative-ai v0.24.1 installed
+- [x] Server-side Gemini client (lib/ai/gemini.ts) — singleton, retry with exponential backoff, 30s timeout
+- [x] Content generator service (lib/ai/content-generator.ts) — generatePosts, improveContent
+- [x] System prompts encode skills.md rules: identity, voice, scoring (6 criteria, 1-10), quality gates
+- [x] Structured JSON output with Zod validation of every AI response
+- [x] 6 post formats (short, story, technical, thread_opener, listicle, question)
+- [x] 6 improvement types (improve_hook, make_clearer, make_specific, make_natural, thread_outline, adapt_pillar)
+- [x] 4 tone options (informative, conversational, provocative, storytelling)
+- [x] 1-5 variation generation with different angles per request
+- [x] Character-limit enforcement with post-generation truncation
+- [x] Server actions (lib/actions/ai.ts) — checkAiAvailability, generatePostAction, improveContentAction, getAiModelInfo
+- [x] All server actions require authentication and validate inputs with Zod
+- [x] AI Writer page: server component wrapper + full interactive client UI
+- [x] Generate tab: topic, pillar, format, tone, variation count, extra instructions
+- [x] Improve tab: content input, 6 improvement type chips, pillar select
+- [x] Results display: PostCard with scores visualization, save-as-draft, iterate buttons
+- [x] Honest empty state when GEMINI_API_KEY not configured
+- [x] API key is server-side only — never exposed to client
+- [x] Zod schemas for all AI request/response types (lib/validators/ai.ts)
+- [x] Model: gemini-2.0-flash | responseMimeType: application/json
+
 ### Testing
-- [x] 48 tests passing across 5 test files
-- [x] Post status transitions: 21 tests (all valid/invalid transitions, error messages)
-- [x] Zod validators: auth (5), posts (9), ideas (10)
+- [x] 148 tests passing across 12 test files
+- [x] Post status transitions: 21 + 10 extended tests
+- [x] Zod validators: auth (5), posts (9+14), ideas (10+12), AI (30)
+- [x] AI content-generator: 17 tests (mocked Gemini, validation, truncation, errors)
+- [x] Gemini client: 7 tests (config detection, missing key, model ID)
+- [x] DB schema: 10 tests
 - [x] Dashboard page rendering: 3 tests
+- [x] All tests use mocks — no real API key or charges required
 - [x] TypeScript strict mode — zero type errors
 - [x] ESLint — zero errors, zero warnings
-- [x] Production build — succeeds (13 pages)
 
 ## Database Architecture
 
@@ -92,11 +117,7 @@ Last updated: 2026-10-22
 
 ## Not Yet Started
 
-### Milestone 4 — Gemini AI Integration
-- [ ] Gemini API client with skills.md prompts
-- [ ] AI content generation with structured output validation
-- [ ] Rate limiting and error handling
-- [ ] AI Writer page activation
+### ~~Milestone 4 — Gemini AI Integration~~ ✅ Complete (see above)
 
 ### Milestone 5 — X API Integration
 - [ ] OAuth 2.0 flow for X account connection
