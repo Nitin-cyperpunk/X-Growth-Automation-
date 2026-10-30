@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { disconnectXAccount } from "@/lib/actions/x";
+import { disconnectXAccount, completeXManualSetup } from "@/lib/actions/x";
 
 interface SettingsClientProps {
   geminiStatus: "connected" | "not_configured";
@@ -29,18 +29,48 @@ export function SettingsClient({
     text: string;
   } | null>(null);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [showManualSetup, setShowManualSetup] = useState(false);
+  const [manualUsername, setManualUsername] = useState("");
+  const [manualSubmitting, setManualSubmitting] = useState(false);
 
   useEffect(() => {
     const success = searchParams.get("x_success");
     const error = searchParams.get("x_error");
+    const setup = searchParams.get("x_setup");
     if (success) {
       setXMessage({ type: "success", text: success });
       router.replace("/settings", { scroll: false });
     } else if (error) {
       setXMessage({ type: "error", text: error });
       router.replace("/settings", { scroll: false });
+    } else if (setup === "manual") {
+      setShowManualSetup(true);
+      router.replace("/settings", { scroll: false });
     }
   }, [searchParams, router]);
+
+  async function handleManualSetup(e: React.FormEvent) {
+    e.preventDefault();
+    const username = manualUsername.replace(/^@/, "").trim();
+    if (!username) return;
+
+    setManualSubmitting(true);
+    try {
+      const result = await completeXManualSetup({ xUsername: username });
+      if (result.success) {
+        setShowManualSetup(false);
+        setManualUsername("");
+        setXMessage({ type: "success", text: `Connected @${username}` });
+        router.refresh();
+      } else {
+        setXMessage({ type: "error", text: result.error });
+      }
+    } catch (err) {
+      setXMessage({ type: "error", text: (err as Error).message });
+    } finally {
+      setManualSubmitting(false);
+    }
+  }
 
   async function handleDisconnect() {
     if (!xAccount) return;
@@ -74,6 +104,48 @@ export function SettingsClient({
         >
           {xMessage.text}
         </div>
+      )}
+
+      {showManualSetup && (
+        <section className="rounded-lg border border-violet-800 bg-violet-950/20 p-5">
+          <h2 className="mb-2 text-sm font-medium text-white">
+            Complete X Account Setup
+          </h2>
+          <p className="mb-4 text-xs text-zinc-400">
+            Your X account was authorized successfully. Enter your X username to
+            finish connecting. (The free X API tier doesn&apos;t allow fetching
+            your profile automatically.)
+          </p>
+          <form onSubmit={handleManualSetup} className="flex items-center gap-3">
+            <div className="relative flex-1">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-zinc-500">
+                @
+              </span>
+              <input
+                type="text"
+                value={manualUsername}
+                onChange={(e) => setManualUsername(e.target.value)}
+                placeholder="your_username"
+                maxLength={15}
+                className="w-full rounded border border-zinc-700 bg-zinc-900 py-2 pl-8 pr-3 text-sm text-white placeholder:text-zinc-600 focus:border-violet-600 focus:outline-none"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={manualSubmitting || !manualUsername.replace(/^@/, "").trim()}
+              className="rounded bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500 disabled:opacity-50"
+            >
+              {manualSubmitting ? "Connecting..." : "Connect"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowManualSetup(false)}
+              className="rounded border border-zinc-700 bg-zinc-800 px-4 py-2 text-sm text-zinc-400 hover:bg-zinc-700"
+            >
+              Cancel
+            </button>
+          </form>
+        </section>
       )}
 
       <section className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-5">

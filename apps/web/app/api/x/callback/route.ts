@@ -12,6 +12,7 @@ import { encryptToken } from "@/lib/x-api/encryption";
 import { xOAuthCallbackSchema, xOAuthStateSchema } from "@/lib/validators/x";
 
 const OAUTH_COOKIE_NAME = "x_oauth_pkce";
+const PENDING_TOKENS_COOKIE = "x_pending_tokens";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -81,9 +82,6 @@ export async function GET(request: NextRequest) {
       storedState.codeVerifier
     );
 
-    const client = createXApiClient(tokenResponse.access_token, null);
-    const xUser = await client.getMe();
-
     const encryptedAccess = encryptToken(tokenResponse.access_token);
     const encryptedRefresh = tokenResponse.refresh_token
       ? encryptToken(tokenResponse.refresh_token)
@@ -91,6 +89,42 @@ export async function GET(request: NextRequest) {
     const expiresAt = new Date(
       Date.now() + tokenResponse.expires_in * 1000
     );
+
+    const client = createXApiClient(tokenResponse.access_token, null);
+    let xUser: { id: string; name: string; username: string } | null = null;
+
+    try {
+      xUser = await client.getMe();
+    } catch (profileError) {
+      const is403 =
+        profileError instanceof Error &&
+        profileError.message.includes("403");
+
+      if (is403) {
+        cookieStore.set(
+          PENDING_TOKENS_COOKIE,
+          JSON.stringify({
+            accessToken: encryptedAccess,
+            refreshToken: encryptedRefresh,
+            expiresAt: expiresAt.toISOString(),
+          }),
+          {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: 600,
+            path: "/",
+          }
+        );
+        cookieStore.delete(OAUTH_COOKIE_NAME);
+
+        return NextResponse.redirect(
+          new URL("/settings?x_setup=manual", request.url)
+        );
+      }
+
+      throw profileError;
+    }
 
     const db = getDb();
     const userId = session.user.id;

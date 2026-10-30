@@ -20,6 +20,20 @@ export const xDisconnectSchema = z.object({
   xAccountId: z.string().uuid("Invalid X account ID"),
 });
 
+export const xManualSetupSchema = z.object({
+  xUsername: z
+    .string()
+    .min(1, "Username is required")
+    .max(15, "X usernames are at most 15 characters")
+    .regex(/^[A-Za-z0-9_]+$/, "Only letters, numbers, and underscores"),
+});
+
+export const xPendingTokensSchema = z.object({
+  accessToken: z.string().min(1),
+  refreshToken: z.string().nullable(),
+  expiresAt: z.string().min(1),
+});
+
 export const xFetchMetricsSchema = z.object({
   postId: z.string().uuid("Invalid post ID"),
   xAccountId: z.string().uuid("Invalid X account ID"),
@@ -93,3 +107,5 @@ export type XOAuthCallback = z.infer<typeof xOAuthCallbackSchema>;
 export type XPublishPost = z.infer<typeof xPublishPostSchema>;
 export type XDisconnect = z.infer<typeof xDisconnectSchema>;
 export type XFetchMetrics = z.infer<typeof xFetchMetricsSchema>;
+export type XManualSetup = z.infer<typeof xManualSetupSchema>;
+export type XPendingTokens = z.infer<typeof xPendingTokensSchema>;

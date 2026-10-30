@@ -7,7 +7,8 @@ import { getAuthenticatedUserId } from "@/lib/auth/session";
 import { isXApiConfigured, getOAuthConfig, revokeToken } from "@/lib/x-api/oauth";
 import { getClientForAccount } from "@/lib/x-api/client";
 import { decryptToken } from "@/lib/x-api/encryption";
-import { xPublishPostSchema, xFetchMetricsSchema, xDisconnectSchema } from "@/lib/validators/x";
+import { cookies } from "next/headers";
+import { xPublishPostSchema, xFetchMetricsSchema, xDisconnectSchema, xManualSetupSchema, xPendingTokensSchema } from "@/lib/validators/x";
 import { validateTransition, type PostStatus } from "@/lib/services/post-transitions";
 
 export type ActionResult<T = void> =
@@ -57,6 +58,85 @@ export async function checkXConnectionStatus(): Promise<
         account: account || null,
       },
     };
+  } catch (e) {
+    return { success: false, error: (e as Error).message };
+  }
+}
+
+const PENDING_TOKENS_COOKIE = "x_pending_tokens";
+
+export async function completeXManualSetup(
+  input: unknown
+): Promise<ActionResult> {
+  try {
+    const userId = await getAuthenticatedUserId();
+    const parsed = xManualSetupSchema.safeParse(input);
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
+    }
+
+    const cookieStore = await cookies();
+    const rawCookie = cookieStore.get(PENDING_TOKENS_COOKIE)?.value;
+    if (!rawCookie) {
+      return {
+        success: false,
+        error: "Setup session expired. Please reconnect your X account.",
+      };
+    }
+
+    let tokenData: { accessToken: string; refreshToken: string | null; expiresAt: string };
+    try {
+      const cookieParsed = JSON.parse(rawCookie);
+      const validated = xPendingTokensSchema.safeParse(cookieParsed);
+      if (!validated.success) throw new Error("Invalid token data");
+      tokenData = validated.data;
+    } catch {
+      cookieStore.delete(PENDING_TOKENS_COOKIE);
+      return {
+        success: false,
+        error: "Invalid setup session. Please reconnect your X account.",
+      };
+    }
+
+    const username = parsed.data.xUsername;
+    const db = getDb();
+
+    const [existing] = await db
+      .select()
+      .from(schema.xAccounts)
+      .where(
+        and(
+          eq(schema.xAccounts.userId, userId),
+          eq(schema.xAccounts.xUsername, username)
+        )
+      )
+      .limit(1);
+
+    if (existing) {
+      await db
+        .update(schema.xAccounts)
+        .set({
+          accessToken: tokenData.accessToken,
+          refreshToken: tokenData.refreshToken,
+          tokenExpiresAt: new Date(tokenData.expiresAt),
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.xAccounts.id, existing.id));
+    } else {
+      await db.insert(schema.xAccounts).values({
+        userId,
+        xUserId: `manual_${username}`,
+        xUsername: username,
+        xDisplayName: username,
+        accessToken: tokenData.accessToken,
+        refreshToken: tokenData.refreshToken,
+        tokenExpiresAt: new Date(tokenData.expiresAt),
+      });
+    }
+
+    cookieStore.delete(PENDING_TOKENS_COOKIE);
+    revalidatePath("/settings");
+    return { success: true, data: undefined };
   } catch (e) {
     return { success: false, error: (e as Error).message };
   }

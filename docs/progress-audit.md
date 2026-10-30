@@ -1,6 +1,6 @@
 # Progress Audit
 
-Last updated: 2026-10-22
+Last updated: 2026-10-30
 
 ## Completed
 
@@ -116,13 +116,63 @@ Last updated: 2026-10-22
 - [x] No X publishing in this milestone
 - [x] API key and webhook secret are server-side only
 
+### Milestone 6 — X API Integration (Prompt 08)
+- [x] OAuth 2.0 Authorization Code Flow with PKCE (lib/x-api/oauth.ts)
+  - getOAuthConfig(), isXApiConfigured(), generatePKCE(), generateState()
+  - buildAuthorizationUrl() with scopes: tweet.read, tweet.write, users.read, offline.access
+  - exchangeCodeForToken() with Basic auth header
+  - refreshAccessToken(), revokeToken() (best-effort)
+- [x] AES-256-GCM token encryption (lib/x-api/encryption.ts)
+  - Random 12-byte IV per encryption, 16-byte auth tag
+  - X_TOKEN_ENCRYPTION_KEY (base64-encoded 32 bytes)
+  - encryptToken(), decryptToken(), isEncryptionConfigured()
+- [x] X API v2 client (lib/x-api/client.ts)
+  - XApiClient class with 15s request timeout
+  - Automatic 401 → refresh token → retry cycle
+  - getMe(), createTweet() (empty/280-char validation), getTweet(), getTweetMetrics()
+  - getClientForAccount() — loads from DB, decrypts tokens, wires auto-refresh callback
+  - createXApiClient() factory function
+- [x] OAuth route: /api/x/authorize (app/api/x/authorize/route.ts)
+  - Session check via auth()
+  - Single JSON httpOnly cookie (x_oauth_pkce) with state + codeVerifier, maxAge 600s
+  - Secure cookie in production, sameSite: lax
+- [x] OAuth callback: /api/x/callback (app/api/x/callback/route.ts)
+  - State validation against cookie (CSRF protection)
+  - Zod validation of callback params and stored state
+  - Code exchange → profile fetch (getMe) → encrypt tokens → upsert x_accounts
+  - Cookie cleanup on success and error
+  - Error descriptions in redirect query params
+- [x] Zod validators (lib/validators/x.ts)
+  - xOAuthStateSchema, xOAuthCallbackSchema, xPublishPostSchema, xDisconnectSchema, xFetchMetricsSchema
+  - xTokenResponseSchema, xUserResponseSchema, xCreateTweetResponseSchema, xTweetMetricsResponseSchema
+  - countCharacters() (URLs → 23 chars), isWithinCharacterLimit(), POST_CHARACTER_LIMIT = 280
+- [x] Server actions (lib/actions/x.ts)
+  - checkXConnectionStatus(), disconnectXAccount() (with token revocation)
+  - publishPost() — status machine validation (approved/scheduled → publishing → published/failed)
+  - fetchPostMetrics() — stores in post_metrics table
+  - getPublishedPostsWithMetrics(), getUserXAccount()
+  - All actions enforce user ownership via getAuthenticatedUserId()
+- [x] Settings UI (app/(dashboard)/settings/)
+  - X connection status: Not Configured → Configured (Connect button) → Connected (@username + Disconnect)
+  - Success/error messages from OAuth redirect, auto-cleared from URL
+  - Disconnect with confirmation dialog
+- [x] Queue integration (app/(dashboard)/queue/)
+  - "Publish to X" button for approved/scheduled posts when X account connected
+- [x] Database: x_accounts table with encrypted tokens, unique (userId, xUserId) index
+- [x] Env vars: X_CLIENT_ID, X_CLIENT_SECRET, X_TOKEN_ENCRYPTION_KEY all configured
+- [x] Security: tokens encrypted at rest, httpOnly cookies, server-side only secrets, CSRF state check
+
 ### Testing
-- [x] 190 tests passing across 14 test files
+- [x] 252 tests passing across 18 test files (was 190 across 14)
 - [x] Post status transitions: 21 + 10 extended tests
 - [x] Zod validators: auth (5), posts (9+14), ideas (10+12), AI (30), workflows (22)
 - [x] AI content-generator: 17 tests (mocked Gemini, validation, truncation, errors)
 - [x] Gemini client: 7 tests (config detection, missing key, model ID)
 - [x] n8n client: 20 tests (config detection, URL validation, SSRF protection, HMAC signatures, replay rejection, missing config)
+- [x] X API OAuth: 15 tests (config detection, PKCE generation, state generation, URL building, token exchange errors)
+- [x] X API encryption: 10 tests (config detection, encrypt/decrypt roundtrip, random IV, wrong key, invalid ciphertext, single-char/long tokens)
+- [x] X API client: 9 tests (authenticated requests, tweet CRUD, rate limits, generic errors, metrics, token refresh on 401)
+- [x] X API validators: 28 tests (all schemas, character counting with URLs, emoji, limit checking)
 - [x] DB schema: 10 tests
 - [x] Dashboard page rendering: 3 tests
 - [x] All tests use mocks — no real API key, n8n instance, or charges required
@@ -161,11 +211,7 @@ Last updated: 2026-10-22
 
 ### ~~Milestone 4 — Gemini AI Integration~~ ✅ Complete (see above)
 
-### Milestone 5 — X API Integration
-- [ ] OAuth 2.0 flow for X account connection
-- [ ] Token storage and refresh
-- [ ] Post publishing
-- [ ] Metrics retrieval
+### ~~Milestone 5 — X API Integration~~ ✅ Complete (see Milestone 6 above)
 
 ### ~~Milestone 6 — Scheduling and n8n~~ ✅ Complete (see Milestone 5 above, renamed from Prompt 06)
 
@@ -182,10 +228,8 @@ Last updated: 2026-10-22
 
 ## Blockers
 
-- **GEMINI_API_KEY**: Not configured. AI Writer page shows honest empty state.
-- **X API credentials**: Not configured. Publish and metrics features unavailable.
 - **N8N_BASE_URL / N8N_WEBHOOK_SECRET**: Not configured. Automation page shows setup instructions. Workflow triggers will fail until n8n is deployed and secrets are set.
-- **Database migration 0001**: Must be applied (`pnpm db:migrate`) to create workflow_configs and workflow_executions tables.
+- **Vercel deployment**: NEXTAUTH_URL is currently `http://localhost:3000`. For production OAuth, update to the Vercel URL and add the production callback URL in the X Developer Portal.
 
 ## Environment Setup
 
